@@ -1,7 +1,7 @@
 /*******************************************************************************
   * @file                   IIC.c
   * @Author:                MQjehovah                 mail:MQjehovah@hotmail.com
-  * @version                1.0.2
+  * @version                1.0.3
   * @date                   2017.4.14
   * @brief                  
   ******************************************************************************
@@ -13,10 +13,10 @@
 
 /* Functions -----------------------------------------------------------------*/
 /*******************************************************************************
-  * @brief  初始化IIC使用到的IO口	             
+  * @brief  初始化IIC             
   * @param  None              
   * @retval None              
-  * @Note   None               
+  * @Note   需要Delay.c               
 *******************************************************************************/ 
 void IIC_Init(void)
 {					     
@@ -34,18 +34,17 @@ void IIC_Init(void)
 	
  	IIC_SCL_H;						                  //输出高
  	IIC_SDA_H;
-	IIC_SDA_OUT;	   
 }
 
 /*******************************************************************************
-  * @brief  启动              
+  * @brief  产生IIC启动信号              
   * @param  None              
   * @retval None              
   * @Note   None              
 *******************************************************************************/
 void IIC_Start(void)
 {
-	IIC_SDA_OUT;    //sda线输出
+	IIC_SDA_OUT;    //SDA线输出
 	IIC_SDA_H;	  	  
 	IIC_SCL_H;
 	Delay_us(IIC_PAUSE);
@@ -61,7 +60,7 @@ void IIC_Start(void)
 *******************************************************************************/  
 void IIC_Stop(void)
 {
-	IIC_SDA_OUT;    //sda线输出
+	IIC_SDA_OUT;    //SDA线输出
 	IIC_SCL_L;
 	IIC_SDA_L;      //STOP:when CLK is high DATA change form low to high
  	Delay_us(IIC_PAUSE);
@@ -132,7 +131,7 @@ void IIC_NAck(void)
 }
 
 /*******************************************************************************
-  * @brief  读1个字节	             
+  * @brief  IIC读取一个字节	             
   * @param  None              
   * @retval None              
   * @Note   ack=1时，发送ACK，ack=0，发送nACK              
@@ -147,9 +146,10 @@ u8 IIC_Read_Byte(void)
         Delay_us(IIC_PAUSE);
 		IIC_SCL_H;
         receive<<=1;
-        if(READ_SDA)receive|=0x01;   
+        if(IIC_SDA_READ)receive|=0x01;   
 		    Delay_us(IIC_PAUSE); 
-    }					 
+    }	
+//    在读取字节时发送ACK信号，注释后需要在读写时用IIC_Ack和IIC_NAck手动发送	
 //    if (!ack)
 //        IIC_NAck();//发送nACK
 //    else
@@ -180,16 +180,46 @@ void IIC_Send_Byte(u8 txd)
 		IIC_SCL_L;	
 		Delay_us(IIC_PAUSE);
     }
-	//SCCB_SDA_IN;		               //设置SDA为输入 
-	//Delay_us(50);
-	//SCCB_SIC_H;			           //接收第九位,以判断是否发送成功
-	//Delay_us(50);
-	//if(SCCB_READ_SID)res=1;          //SDA=1发送失败，返回1
+	//在发送字节时接收ACK信号，注释后需要在读写时用IIC_Wait_Ack手动判断
+	//IIC_SDA_IN;		               //设置SDA为输入 
+	//Delay_us(IIC_PAUSE);
+	//IIC_SCL_H;			           //接收第九位,以判断是否发送成功
+	//Delay_us(IIC_PAUSE);
+	//if(IIC_SDA_READ)res=1;          //SDA=1发送失败，返回1
 	//else res=0;                      //SDA=0发送成功，返回0
-	//SCCB_SIC_L;		 
-	//SCCB_SDA_OUT;	                   //设置SDA为输出    
+	//IIC_SCL_L;		 
+	//IIC_SDA_OUT;	                   //设置SDA为输出    
 	//return res;  	
 } 	 
+
+/*******************************************************************************
+  * @brief  读一个字节	             
+  * @param  addr：器件slave_address
+			reg ：从器件将要写入数据的地址
+			data：将要写入的一个数据           
+  * @retval None              
+  * @Note   0 失败
+			1 成功           
+*******************************************************************************/ 
+u8 IIC_ReadOneByte(u8 addr, u8 reg, u8* data)
+{
+    IIC_Start();
+    IIC_Send_Byte(addr << 1 | I2C_Direction_Transmitter);
+    if (IIC_Wait_Ack()) 
+	{
+        IIC_Stop();
+        return 0;
+    }
+    IIC_Send_Byte(reg);
+    IIC_Wait_Ack();
+	IIC_Start();
+	IIC_Send_Byte(addr << 1 | I2C_Direction_Receiver);
+	IIC_Wait_Ack();
+    *data = IIC_Read_Byte();
+    IIC_NAck();
+    IIC_Stop();
+    return 1;
+}
 
 /*******************************************************************************
   * @brief  写一个字节	             
@@ -267,20 +297,20 @@ u8 IIC_Read_Buffer(u8 addr, u8 reg, u8 len, u8* buf)
   * @Note   0 失败
 			1 成功
 *******************************************************************************/  
-u8 IIC_Write_Buffer(u8 addr, u8 reg, u8 len, u8 * data)
+u8 IIC_Write_Buffer(u8 addr, u8 reg, u8 len, u8* data)
 {
     int i;
     IIC_Start();
     IIC_Send_Byte(addr << 1 | I2C_Direction_Transmitter);//7位器件从地址+读写位
     if (IIC_Wait_Ack()) 
-		{
+	{
         IIC_Stop();
         return 0;
     }
     IIC_Send_Byte(reg);
     IIC_Wait_Ack();
     for (i = 0; i < len; i++) 
-		{
+	{
         IIC_Send_Byte(*data);
         if (IIC_Wait_Ack()) 
 		{
