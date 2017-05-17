@@ -8,9 +8,10 @@
   * @attention
 *******************************************************************************/
 /* Includes ------------------------------------------------------------------*/
-#include "USART_Driver.h"
-#include "stm32f10x_usart.h"
+#include "USART.h"
+
 /* Definition ----------------------------------------------------------------*/
+#define Debug_USART        USART1
 #ifdef __GNUC__
 /* With GCC/RAISONANCE, small printf (option LD Linker->Libraries->Small printf
     set to 'Yes') calls __io_putchar() */
@@ -18,41 +19,129 @@
 #else
 #define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
 #endif /* __GNUC__ */
+
+
+GPIO_DEV * RS485EN = NULL;
 /* Functions -----------------------------------------------------------------*/
-void USART1_Configuration(void)
+/*******************************************************************************
+  * @brief  USART管脚配置              
+  * @param  None
+  * @retval None              
+  * @Note   None              
+*******************************************************************************/
+void USART_GPIO_Config(USART_TypeDef *USARTx)
 {
-	GPIO_InitTypeDef GPIO_InitStructure;  		 
+	if(USARTx == USART1)
+	{
+		GPIO_Config(&PA9,GPIO_Mode_AF_PP);
+		GPIO_Config(&PA10,GPIO_Mode_IN_FLOATING);
+	}
+	if(USARTx == USART2)
+	{
+		GPIO_Config(&PA2,GPIO_Mode_AF_PP);
+		GPIO_Config(&PA3,GPIO_Mode_IN_FLOATING);
+	}
+	if(USARTx == USART3)
+	{
+		GPIO_Config(&PB10,GPIO_Mode_AF_PP);
+		GPIO_Config(&PB11,GPIO_Mode_IN_FLOATING);
+	}
+//	if(USARTx == USART4)
+//	{
+//		GPIO_Config(&PA9,GPIO_Mode_AF_PP);
+//		GPIO_Config(&PA10,GPIO_Mode_IN_FLOATING);
+//	}
+//	if(USARTx == USART5)
+//	{
+//		GPIO_Config(&PA9,GPIO_Mode_AF_PP);
+//		GPIO_Config(&PA10,GPIO_Mode_IN_FLOATING);
+//	}
+}
+/*******************************************************************************
+  * @brief  USART初始化          
+  * @param  None
+  * @retval None              
+  * @Note   None              
+*******************************************************************************/
+void USART_Config(USART_TypeDef *USARTx,u16 Buand)
+{ 
 	USART_InitTypeDef USART_InitStructure;
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA,ENABLE);	
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1,ENABLE);		 
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;    
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;    
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;    
-	GPIO_Init(GPIOA, &GPIO_InitStructure);        
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;  
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;   
-	GPIO_Init(GPIOA, &GPIO_InitStructure);    
-	USART_InitStructure.USART_BaudRate = 9600;//115200;    
+	
+	USART_GPIO_Config(USARTx);
+	USART_InitStructure.USART_BaudRate = Buand;   
 	USART_InitStructure.USART_WordLength = USART_WordLength_8b;    
 	USART_InitStructure.USART_StopBits = USART_StopBits_1;    
 	USART_InitStructure.USART_Parity = USART_Parity_No ;    
 	USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;   
 	USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;   
-	USART_Init(USART1, &USART_InitStructure);    
-	USART_Cmd(USART1, ENABLE);    
+	USART_Init(USARTx, &USART_InitStructure);    
+	USART_Cmd(USARTx, ENABLE);    
 }
 
-void USART_SendStr(char* senddata)
+/*******************************************************************************
+  * @brief  485初始化              
+  * @param  None
+  * @retval None              
+  * @Note   None              
+*******************************************************************************/
+void USART_485_Config(USART_TypeDef *USARTx,u16 Buand,GPIO_DEV *ENPIN)
+{
+	RS485EN = ENPIN;
+	GPIO_Config(RS485EN,GPIO_Mode_Out_PP);
+	GPIO_WritePin(RS485EN,LOW);
+	USART_Config(USARTx,Buand);
+}
+/*******************************************************************************
+  * @brief  USART发送一个字符          
+  * @param  None
+  * @retval None              
+  * @Note   None              
+*******************************************************************************/
+void USART_SendChar(USART_TypeDef *USARTx,char Data)
+{
+	USART_SendData(USARTx,Data);
+		while(USART_GetFlagStatus(USARTx, USART_FLAG_TXE) == RESET);
+}
+/*******************************************************************************
+  * @brief  485发送一个字符              
+  * @param  None
+  * @retval None              
+  * @Note   None              
+*******************************************************************************/
+void USART_485_SendChar(USART_TypeDef *USARTx,char Data)
+{
+	GPIO_WritePin(RS485EN,HIGH);
+	USART_SendChar(USARTx,Data);
+	GPIO_WritePin(RS485EN,LOW);
+}
+/*******************************************************************************
+  * @brief  USART发送字符串              
+  * @param  None
+  * @retval None              
+  * @Note   None              
+*******************************************************************************/
+void USART_SendStr(USART_TypeDef *USARTx,char* senddata)
 {
 	int lenth=strlen(senddata);
 	int i;
-	for (i=0; i<lenth; i++)
+	for (i=0; i<lenth+1; i++)
  	{
-		USART_SendData(USART1,*senddata++);
-		while(USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+		USART_SendData(USARTx,*senddata++);
+		while(USART_GetFlagStatus(USARTx, USART_FLAG_TXE) == RESET);
 	}        
 }  
-
+/*******************************************************************************
+  * @brief  485发送字符串              
+  * @param  None
+  * @retval None              
+  * @Note   None              
+*******************************************************************************/
+void USART_485_SendStr(USART_TypeDef *USARTx,char* senddata)
+{
+	GPIO_WritePin(RS485EN,HIGH);
+	USART_SendStr(USARTx,senddata);
+	GPIO_WritePin(RS485EN,LOW);
+}
 
 //不使用半主机模式
 #if 1 //如果没有这段，则需要在target选项中选择使用USE microLIB
@@ -63,7 +152,7 @@ struct __FILE
 };  
 FILE __stdout;  
 
-_sys_exit(int x)  
+void _sys_exit(int x)  
 {  
 	x = x;  
 }
@@ -74,10 +163,9 @@ PUTCHAR_PROTOTYPE
 {
 	/* Place your implementation of fputc here */
 	/* e.g. write a character to the USART */
-	USART_SendData(USART1,(u8)ch);
-
+	USART_SendData(Debug_USART,(u8)ch);
 	/* Loop until the end of transmission */
-	while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+	while (USART_GetFlagStatus(Debug_USART, USART_FLAG_TXE) == RESET);
 
 	return ch;
 }

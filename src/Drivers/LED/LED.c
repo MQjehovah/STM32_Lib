@@ -10,7 +10,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "LED.h"
 /* Definition ----------------------------------------------------------------*/
-
+LED_DEV LED[LED_NUM]={{&LED1_GPIO,0},{&LED2_GPIO,0}};
 /* Functions -----------------------------------------------------------------*/
 /*******************************************************************************
   * @brief  LED端口配置       
@@ -18,21 +18,12 @@
   * @retval None              
   * @Note   None              
 *******************************************************************************/
-void led_gpio_config()
+void LED_GPIO_Config()
 {
-	GPIO_InitTypeDef GPIO_InitStructure;
-#if(LED_NUM>0)
-	GPIO_InitStructure.GPIO_Pin = LED1_PIN ;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_Init(LED1_PORT,&GPIO_InitStructure);
-#endif
-#if(LED_NUM>1)
-	GPIO_InitStructure.GPIO_Pin = LED2_PIN ;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_Init(LED2_PORT,&GPIO_InitStructure);
-#endif
+	for(u8 i=0;i<LED_NUM;i++)
+	{
+		GPIO_Config(LED[i].gpio,GPIO_Mode_Out_PP);
+	}
 }
 /*******************************************************************************
   * @brief  LED初始化              
@@ -40,29 +31,76 @@ void led_gpio_config()
   * @retval None              
   * @Note   None              
 *******************************************************************************/
-void led_init()
+void LED_init()
 {
-	led_gpio_config();
+	LED_GPIO_Config();
 }
-
+/*******************************************************************************
+  * @brief  点亮LED              
+  * @param  None              
+  * @retval None              
+  * @Note   None              
+*******************************************************************************/
+void LED_ON(u8 id)
+{
+	if(id<LED_NUM)
+		GPIO_WritePin(LED[id].gpio,HIGH);
+}
+/*******************************************************************************
+  * @brief  关闭LED              
+  * @param  None              
+  * @retval None              
+  * @Note   None              
+*******************************************************************************/
+void LED_OFF(u8 id)
+{
+	if(id<LED_NUM)
+		GPIO_WritePin(LED[id].gpio,LOW);
+}
 /*******************************************************************************
   * @brief  LED闪烁              
   * @param  None              
   * @retval None              
   * @Note   None              
 *******************************************************************************/
-void led_flash(unsigned char num,int time,int count)
+void LED_Flash(u8 id,u16 time,u8 count)
 {
-	int i = 0;
-	for(i=0;i<count;i++)
+	for(u8 i=0;i<count;i++)
 	{
-		LED_ON(num);
-		delay_us(time);
-		LED_OFF(num);
-		delay_us(time);
+		LED_ON(id);
+		delay_ms(time);
+		LED_OFF(id);
+		delay_ms(time);
 	}
 }
+/*******************************************************************************
+  * @brief  设置LED状态              
+  * @param  None              
+  * @retval None              
+  * @Note   None              
+*******************************************************************************/
+void LED_SetState(u8 id, LED_STA state)
+{
+	if(state == ON)
+		GPIO_WritePin(LED[id].gpio,HIGH);
+	else 
+		GPIO_WritePin(LED[id].gpio,LOW);
+}
+/*******************************************************************************
+  * @brief  获取LED状态              
+  * @param  None              
+  * @retval None              
+  * @Note   None              
+*******************************************************************************/
+LED_STA LED_GetState(u8 id)
+{
+	if(GPIO_ReadPin(LED[id].gpio)== HIGH)
+		return ON;
+	else 
+		return OFF;
+}
 
+#ifdef OS
 /*******************************************************************************
   * @brief  LED闪烁              
   * @param  None              
@@ -72,7 +110,7 @@ void led_flash(unsigned char num,int time,int count)
 void led_flash_os(unsigned char num,int time,int times)
 {
 	int i = 0;
-	for(i=0;i<count;i++)
+	for(i=0;i<times;i++)
 	{
 		LED_ON(num);
 		OSTimeDlyHMSM(0, 0, 1, 0);
@@ -80,4 +118,5 @@ void led_flash_os(unsigned char num,int time,int times)
 		OSTimeDlyHMSM(0, 0, 1, 0);
 	}
 }
+#endif
 /*********************************END OF FILE**********************************/
