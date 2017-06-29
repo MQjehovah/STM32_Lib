@@ -12,6 +12,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f10x_conf.h"
 #include "GPIO.h"
+#include "USART.h"
+
 #include "stdio.h"
 /* Definition ----------------------------------------------------------------*/
 typedef enum
@@ -64,10 +66,13 @@ typedef struct
 #define TIM4_CH2_GPIO   PB7
 #define TIM4_CH3_GPIO   PB8
 #define TIM4_CH4_GPIO   PB9
+
+
+//extern float speed;
 /* Exported Functions --------------------------------------------------------*/
 void TIM_init(TIM_DEV dev, u16 freq);
 void TIM_Config(TIM_DEV dev);
 void PWM_Config(TIM_TypeDef * TIMx, u16 CCR1,u16 CCR2,u16 CCR3,u16 CCR4);
-void PWM_SetDuty(TIM_CHANNEL channel, u8 duty);
+void PWM_SetDuty(TIM_CHANNEL channel, u16 duty);
 /*********************************END OF FILE**********************************/
 #endif
