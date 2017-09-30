@@ -22,10 +22,12 @@ typedef struct
 	double kI;
 	double kD;
 	double lastErr;
+	double preErr;
 	double OUT;
-}PID_TYPE;
+}PID_Type;
 /* Exported Functions --------------------------------------------------------*/
-
+int LocPIDCalc(PID_Type *PID,int cur_err);
+int IncPIDCalc(PID_Type *PID,int cur_err);
 
 #endif
 /*********************************END OF FILE**********************************/

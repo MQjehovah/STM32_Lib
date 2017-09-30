@@ -169,10 +169,10 @@ void USART_485_SendArray(USART_TypeDef *USARTx, u8 data[], u16 count)
     GPIO_WritePin(RS485EN, LOW);
 }
 /*******************************************************************************
-  * @brief  None
-  * @param  None
+  * @brief  USART_PrintNumber
+  * @param  base：进制
   * @retval None
-  * @Note   None
+  * @Note   按指定进制输出数字
 *******************************************************************************/
 void USART_PrintNumber(USART_TypeDef *USARTx, unsigned long n, u8 base)
 {
@@ -192,9 +192,8 @@ void USART_PrintNumber(USART_TypeDef *USARTx, unsigned long n, u8 base)
     }
 
     for (; i > 0; i--)
-        USART_485_SendChar(USARTx, (char) (buf[i - 1] < 10 ?
-                                           '0' + buf[i - 1] :
-                                           'A' + buf[i - 1] - 10));
+        USART_485_SendChar(USARTx, 
+		(char) (buf[i - 1] < 10 ?'0' + buf[i - 1] : 'A' + buf[i - 1] - 10));
 }
 
 /*******************************************************************************
