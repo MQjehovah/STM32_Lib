@@ -9,6 +9,7 @@
 *******************************************************************************/
 /* Includes ------------------------------------------------------------------*/
 #include "filter.h"
+#include "stm32f10x_conf.h"
 /* Definition ----------------------------------------------------------------*/
 
 /* Functions -----------------------------------------------------------------*/
@@ -25,6 +26,7 @@
 u16 LimitingFilter(u16 value)
 {
 	static u16 last_value;
+	static u16 A;				//限幅
 	if ((value - last_value < A) && (last_value - value < A))
 		last_value =  value;
 	return last_value;
@@ -42,13 +44,7 @@ u16 LimitingFilter(u16 value)
 /* N值可根据实际情况调整 */
 /* 排序采用冒泡法 */
 //#define N  11
-u16 MedianFilter(u16 value_buf[],u8 N)
-{
-	bubble_sort(value_buf,N);
-	return value_buf[(N-1)/2];
-}     
-
-void bubble_sort(int a[],int n)//n为数组a的元素个数
+void bubble_sort(u16 a[],u8 n)//n为数组a的元素个数
 {
     //一定进行N-1轮比较
     for(int i=0; i<n-1; i++)
@@ -66,18 +62,18 @@ void bubble_sort(int a[],int n)//n为数组a的元素个数
     }
 }
 //优化实现
-void bubble_sort_better(int a[],int n)//n为数组a的元素个数
+void bubble_sort_better(u16 a[],u8 n)//n为数组a的元素个数
 {
     //最多进行N-1轮比较
     for(int i=0; i<n-1; i++)
     {
-        bool isSorted = true;
+        u8 isSorted = 1;
         //每一轮比较前n-1-i个，即已排序好的最后i个不用比较
         for(int j=0; j<n-1-i; j++)
         {
             if(a[j] > a[j+1])
             {
-                isSorted = false;
+                isSorted = 0;
                 int temp = a[j];
                 a[j] = a[j+1];
                 a[j+1]=temp;
@@ -86,6 +82,15 @@ void bubble_sort_better(int a[],int n)//n为数组a的元素个数
         if(isSorted) break; //如果没有发生交换，说明数组已经排序好了
     }
 }
+
+
+u16 MedianFilter(u16 value_buf[])
+{
+	bubble_sort(value_buf,N);
+	return value_buf[(N-1)/2];
+}     
+
+
 
 /*******************************************************************************
   * @brief  算术平均滤波法
@@ -100,14 +105,14 @@ void bubble_sort_better(int a[],int n)//n为数组a的元素个数
 			缺点：对于测量速度较慢或要求数据计算速度较快的实时控制不适用比较浪费RAM
 *******************************************************************************/
 //#define N 12
-u16 AlgorithmAverageFilter(u16 value_buf[],u8 N)
+u16 AlgorithmAverageFilter(u16 value_buf[])
 {
    u16  sum = 0;
    for (u8 i=0;i<N;i++)
    {
-      sum + = value_buf[i];
+      sum += value_buf[i];
    }
-   return u16(sum/N);
+   return (u16)(sum/N);
 }
 
 /*******************************************************************************
@@ -130,10 +135,10 @@ u16 RecursiveAverageFilter(u16 value)
 	u16 sum;
 	for(i=0;i<N-1;i++)
 		value_buf[i] = value_buf[i+1];
-	value_buf[N-1] = value();
+	value_buf[N-1] = value;
 	for (i=0;i<N;i++) 
 		sum += value_buf[i];
-	return u16(sum/N);
+	return (u16)(sum/N);
 }
 
 /*******************************************************************************
@@ -148,31 +153,13 @@ u16 RecursiveAverageFilter(u16 value)
 				  测量速度较慢，和算术平均滤波法一样比较浪费RAM
 *******************************************************************************/
 //#define N 12
-u16 MedianAverageFilter(u16 value)
+u16 MedianAverageFilter(u16 value_buf[])
 {
-   char count,i,j;
-   char value_buf[N];
-   int  sum=0;
-   for  (count=0;count 
-   {
-      value_buf[count] = get_ad();
-      delay();
-   }
-   for (j=0;j 
-   {
-      for (i=0;i 
-      {
-         if ( value_buf>value_buf[i+1] )
-         {
-            temp = value_buf;
-            value_buf = value_buf[i+1];
-             value_buf[i+1] = temp;
-         }
-      }
-   }
-   for(count=1;count 
-		sum += value[count];
-   return (char)(sum/(N-2));
+	u16 sum=0;
+	bubble_sort(value_buf,N);
+	for(u8 i=0;i<N-1;i++)
+		sum += value_buf[i];
+	return (char)(sum/(N-2));
 }
 
 /*******************************************************************************
@@ -202,6 +189,7 @@ u16 LimitingAverageFilter(u16 value)
 *******************************************************************************/
 u16 LagFilter(u16 value)
 {
+	static float a;
 	static u16 last_value;
 	last_value = a*value + (1-a)*last_value;	//简化计算可以将系数a扩大一定倍数变成整数
 	return last_value;
@@ -220,22 +208,22 @@ u16 LagFilter(u16 value)
 *******************************************************************************/
 //#define N 12
 /* coe数组为加权系数表，存在程序存储区。*/
-char code coe[N] = {1,2,3,4,5,6,7,8,9,10,11,12};
-char code sum_coe = 1+2+3+4+5+6+7+8+9+10+11+12;
-char filter()
-{
-   char count;
-   char value_buf[N];
-   int  sum=0;
-   for (count=0,count 
-   {
-      value_buf[count] = get_ad();
-      delay();
-   }
-   for (count=0,count 
-      sum += value_buf[count]*coe[count];
-   return (char)(sum/sum_coe);
-}
+//char code coe[N] = {1,2,3,4,5,6,7,8,9,10,11,12};
+//char code sum_coe = 1+2+3+4+5+6+7+8+9+10+11+12;
+//char filter()
+//{
+//   char count;
+//   char value_buf[N];
+//   int  sum=0;
+//   for (count=0,count 
+//   {
+//      value_buf[count] = get_ad();
+//      delay();
+//   }
+//   for (count=0,count 
+//      sum += value_buf[count]*coe[count];
+//   return (char)(sum/sum_coe);
+//}
 
 /*******************************************************************************
   * @brief  消抖滤波法
@@ -249,20 +237,20 @@ char filter()
 			缺点：对于快速变化的参数不宜如果在计数器溢出的那一次采样到的值恰好是干扰值,则会将干扰值当作有效值
 *******************************************************************************/
 //#define N 12
-char filter1()
-{
-   char count="0";
-   char new_value;
-   new_value = get_ad();
-   while (value !=new_value);
-   {
-      count++;
-      if (count>=N)   return new_value;
-       delay();
-      new_value = get_ad();
-   }
-   return value;
-}
+//char filter1()
+//{
+//   u8 count=0;
+//   u16 new_value;
+//   new_value = get_ad();
+//   while (value !=new_value);
+//   {
+//      count++;
+//      if (count>=N)   return new_value;
+//       delay();
+//      new_value = get_ad();
+//   }
+//   return value;
+//}
 
 /*******************************************************************************
   * @brief  限幅消抖滤波法
@@ -324,5 +312,4 @@ double KalmanFilter(const double ResrcData, double ProcessNiose_Q, double Measur
     return x_now;               
 }
 
-#endif
 /*********************************END OF FILE**********************************/

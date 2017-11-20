@@ -1,191 +1,101 @@
+/*******************************************************************************
+  * @file                   delay.c
+  * @Author:                MQjehovah                 mail:MQjehovah@hotmail.com
+  * @version                1.0.1
+  * @date                   2017.5.15
+  * @brief                  æ·»åŠ sysTickå»¶æ—¶
+  ******************************************************************************
+  * @attention
+*******************************************************************************/
+/* Includes ------------------------------------------------------------------*/
 #include "delay.h"
-#include "sys.h"
-////////////////////////////////////////////////////////////////////////////////// 	 
-//Èç¹ûÊ¹ÓÃucos,Ôò°üÀ¨ÏÂÃæµÄÍ·ÎÄ¼ş¼´¿É.
-#if SYSTEM_SUPPORT_UCOS
-#include "includes.h"					//ucos Ê¹ÓÃ	  
-#endif
-//////////////////////////////////////////////////////////////////////////////////  
-//±¾³ÌĞòÖ»¹©Ñ§Ï°Ê¹ÓÃ£¬Î´¾­×÷ÕßĞí¿É£¬²»µÃÓÃÓÚÆäËüÈÎºÎÓÃÍ¾
-//ALIENTEK STM32F407¿ª·¢°å
-//Ê¹ÓÃSysTickµÄÆÕÍ¨¼ÆÊıÄ£Ê½¶ÔÑÓ³Ù½øĞĞ¹ÜÀí(Ö§³Öucosii)
-//°üÀ¨delay_us,delay_ms
-//ÕıµãÔ­×Ó@ALIENTEK
-//¼¼ÊõÂÛÌ³:www.openedv.com
-//ĞŞ¸ÄÈÕÆÚ:2014/5/2
-//°æ±¾£ºV1.0
-//°æÈ¨ËùÓĞ£¬µÁ°æ±Ø¾¿¡£
-//Copyright(C) ¹ãÖİÊĞĞÇÒíµç×Ó¿Æ¼¼ÓĞÏŞ¹«Ë¾ 2014-2024
-//All rights reserved
-//********************************************************************************
-//ĞŞ¸ÄËµÃ÷
-//ÎŞ
-////////////////////////////////////////////////////////////////////////////////// 
- 
-static u8  fac_us=0;//usÑÓÊ±±¶³ËÊı			   
-static u16 fac_ms=0;//msÑÓÊ±±¶³ËÊı,ÔÚucosÏÂ,´ú±íÃ¿¸ö½ÚÅÄµÄmsÊı
-
-#ifdef OS_CRITICAL_METHOD 	//Èç¹ûOS_CRITICAL_METHOD¶¨ÒåÁË,ËµÃ÷Ê¹ÓÃucosIIÁË.
-//systickÖĞ¶Ï·şÎñº¯Êı,Ê¹ÓÃucosÊ±ÓÃµ½
-void SysTick_Handler(void)
-{				   
-	OSIntEnter();		//½øÈëÖĞ¶Ï
-    OSTimeTick();       //µ÷ÓÃucosµÄÊ±ÖÓ·şÎñ³ÌĞò               
-    OSIntExit();        //´¥·¢ÈÎÎñÇĞ»»ÈíÖĞ¶Ï
-}
-#endif
-			   
-//³õÊ¼»¯ÑÓ³Ùº¯Êı
-//µ±Ê¹ÓÃucosµÄÊ±ºò,´Ëº¯Êı»á³õÊ¼»¯ucosµÄÊ±ÖÓ½ÚÅÄ
-//SYSTICKµÄÊ±ÖÓ¹Ì¶¨ÎªHCLKÊ±ÖÓµÄ1/8
-//SYSCLK:ÏµÍ³Ê±ÖÓ
-void delay_init(u8 SYSCLK)
+#include "stdio.h"
+/* Definition ----------------------------------------------------------------*/
+u16 TimeTick;
+u32 sys_Time;
+void (*SysTick_CB)(void);
+/* Functions -----------------------------------------------------------------*/
+/*******************************************************************************
+  * @brief  åˆå§‹åŒ–æ—¶é’Ÿ
+  * @param  None
+  * @retval None
+  * @Note   72000000/ï¼ˆ1000*72000ï¼‰
+*******************************************************************************/
+void SysTick_init()
 {
-#ifdef OS_CRITICAL_METHOD 	//Èç¹ûOS_CRITICAL_METHOD¶¨ÒåÁË,ËµÃ÷Ê¹ÓÃucosIIÁË.
-	u32 reload;
-#endif
- 	SysTick_CLKSourceConfig(SysTick_CLKSource_HCLK_Div8);
-	fac_us=SYSCLK/8;		//²»ÂÛÊÇ·ñÊ¹ÓÃucos,fac_us¶¼ĞèÒªÊ¹ÓÃ
-	    
-#ifdef OS_CRITICAL_METHOD 	//Èç¹ûOS_CRITICAL_METHOD¶¨ÒåÁË,ËµÃ÷Ê¹ÓÃucosIIÁË.
-	reload=SYSCLK/8;		//Ã¿ÃëÖÓµÄ¼ÆÊı´ÎÊı µ¥Î»ÎªK	   
-	reload*=1000000/OS_TICKS_PER_SEC;//¸ù¾İOS_TICKS_PER_SECÉè¶¨Òç³öÊ±¼ä
-							//reloadÎª24Î»¼Ä´æÆ÷,×î´óÖµ:16777216,ÔÚ168MÏÂ,Ô¼ºÏ0.7989s×óÓÒ	
-	fac_ms=1000/OS_TICKS_PER_SEC;//´ú±íucos¿ÉÒÔÑÓÊ±µÄ×îÉÙµ¥Î»	   
-	SysTick->CTRL|=SysTick_CTRL_TICKINT_Msk;   	//¿ªÆôSYSTICKÖĞ¶Ï
-	SysTick->LOAD=reload; 	//Ã¿1/OS_TICKS_PER_SECÃëÖĞ¶ÏÒ»´Î	
-	SysTick->CTRL|=SysTick_CTRL_ENABLE_Msk;   	//¿ªÆôSYSTICK
-#else
-	fac_ms=(u16)fac_us*1000;//·ÇucosÏÂ,´ú±íÃ¿¸ömsĞèÒªµÄsystickÊ±ÖÓÊı   
-#endif
-}								    
-
-#ifdef OS_CRITICAL_METHOD 	//Èç¹ûOS_CRITICAL_METHOD¶¨ÒåÁË,ËµÃ÷Ê¹ÓÃucosIIÁË.
-//ÑÓÊ±nus
-//nus:ÒªÑÓÊ±µÄusÊı.		    								   
-void delay_us(u32 nus)
-{		
-	u32 ticks;
-	u32 told,tnow,tcnt=0;
-	u32 reload=SysTick->LOAD;	//LOADµÄÖµ	    	 
-	ticks=nus*fac_us; 			//ĞèÒªµÄ½ÚÅÄÊı	  		 
-	tcnt=0;
-	OSSchedLock();				//×èÖ¹ucosµ÷¶È£¬·ÀÖ¹´ò¶ÏusÑÓÊ±
-	told=SysTick->VAL;        	//¸Õ½øÈëÊ±µÄ¼ÆÊıÆ÷Öµ
-	while(1)
-	{
-		tnow=SysTick->VAL;	
-		if(tnow!=told)
-		{	    
-			if(tnow<told)tcnt+=told-tnow;//ÕâÀï×¢ÒâÒ»ÏÂSYSTICKÊÇÒ»¸öµİ¼õµÄ¼ÆÊıÆ÷¾Í¿ÉÒÔÁË.
-			else tcnt+=reload-tnow+told;	    
-			told=tnow;
-			if(tcnt>=ticks)break;//Ê±¼ä³¬¹ı/µÈÓÚÒªÑÓ³ÙµÄÊ±¼ä,ÔòÍË³ö.
-		}  
-	};
-	OSSchedUnlock();			//¿ªÆôucosµ÷¶È 									    
+    if(SysTick_Config(SystemCoreClock / 1000)) //ç³»ç»Ÿæ»´ç­”æ—¶é’Ÿ100us
+        while(1);
 }
-//ÑÓÊ±nms
-//nms:ÒªÑÓÊ±µÄmsÊı
-void delay_ms(u16 nms)
-{	
-		if(OSRunning==OS_TRUE&&OSLockNesting==0)//Èç¹ûosÒÑ¾­ÔÚÅÜÁË	   
-	{		  
-		if(nms>=fac_ms)//ÑÓÊ±µÄÊ±¼ä´óÓÚucosµÄ×îÉÙÊ±¼äÖÜÆÚ 
-		{
-   			OSTimeDly(nms/fac_ms);	//ucosÑÓÊ±
-		}
-		nms%=fac_ms;				//ucosÒÑ¾­ÎŞ·¨Ìá¹©ÕâÃ´Ğ¡µÄÑÓÊ±ÁË,²ÉÓÃÆÕÍ¨·½Ê½ÑÓÊ±    
-	}
-	delay_us((u32)(nms*1000));		//ÆÕÍ¨·½Ê½ÑÓÊ± 
+/*******************************************************************************
+  * @brief  ç»‘å®šæ»´ç­”æ—¶é’Ÿäº‹ä»¶
+  * @param  None
+  * @retval None
+  * @Note   None
+*******************************************************************************/
+void SysTick_BindHandle(void (*pCB)(void))
+{
+    SysTick_CB = pCB;
 }
-#else  //²»ÓÃucosÊ±
-//ÑÓÊ±nus
-//nusÎªÒªÑÓÊ±µÄusÊı.	
-//×¢Òâ:nusµÄÖµ,²»Òª´óÓÚ798915us
-void delay_us(u32 nus)
-{		
-	u32 temp;	    	 
-	SysTick->LOAD=nus*fac_us; //Ê±¼ä¼ÓÔØ	  		 
-	SysTick->VAL=0x00;        //Çå¿Õ¼ÆÊıÆ÷
-	SysTick->CTRL|=SysTick_CTRL_ENABLE_Msk ;          //¿ªÊ¼µ¹Êı 
-	do
-	{
-		temp=SysTick->CTRL;
-	}
-	while((temp&0x01)&&!(temp&(1<<16)));//µÈ´ıÊ±¼äµ½´ï   
-	SysTick->CTRL&=~SysTick_CTRL_ENABLE_Msk;       //¹Ø±Õ¼ÆÊıÆ÷
-	SysTick->VAL =0X00;       //Çå¿Õ¼ÆÊıÆ÷	 
+/*******************************************************************************
+  * @brief  æ¸…é™¤æ»´ç­”æ—¶é’Ÿäº‹ä»¶ç»‘å®š
+  * @param  None
+  * @retval None
+  * @Note   None
+*******************************************************************************/
+void SysTick_ClearBind()
+{
+    SysTick_CB = NULL;
 }
-//ÑÓÊ±nms
-//×¢ÒânmsµÄ·¶Î§
-//SysTick->LOADÎª24Î»¼Ä´æÆ÷,ËùÒÔ,×î´óÑÓÊ±Îª:
-//nms<=0xffffff*8*1000/SYSCLK
-//SYSCLKµ¥Î»ÎªHz,nmsµ¥Î»Îªms
-//¶Ô168MÌõ¼şÏÂ,nms<=798ms 
-void delay_xms(u16 nms)
-{	 		  	  
-	u32 temp;		   
-	SysTick->LOAD=(u32)nms*fac_ms;//Ê±¼ä¼ÓÔØ(SysTick->LOADÎª24bit)
-	SysTick->VAL =0x00;           //Çå¿Õ¼ÆÊıÆ÷
-	SysTick->CTRL|=SysTick_CTRL_ENABLE_Msk ;          //¿ªÊ¼µ¹Êı  
-	do
-	{
-		temp=SysTick->CTRL;
-	}
-	while((temp&0x01)&&!(temp&(1<<16)));//µÈ´ıÊ±¼äµ½´ï   
-	SysTick->CTRL&=~SysTick_CTRL_ENABLE_Msk;       //¹Ø±Õ¼ÆÊıÆ÷
-	SysTick->VAL =0X00;       //Çå¿Õ¼ÆÊıÆ÷	  	    
-} 
-//ÑÓÊ±nms 
-//nms:0~65535
-void delay_ms(u16 nms)
-{	 	 
-	u8 repeat=nms/540;	//ÕâÀïÓÃ540,ÊÇ¿¼ÂÇµ½Ä³Ğ©¿Í»§¿ÉÄÜ³¬ÆµÊ¹ÓÃ,
-						//±ÈÈç³¬Æµµ½248MµÄÊ±ºò,delay_xms×î´óÖ»ÄÜÑÓÊ±541ms×óÓÒÁË
-	u16 remain=nms%540;
-	while(repeat)
-	{
-		delay_xms(540);
-		repeat--;
-	}
-	if(remain)delay_xms(remain);
-	
-} 
-#endif
-			 
+/*******************************************************************************
+  * @brief  ç²¾ç¡®mså»¶æ—¶
+  * @param  None
+  * @retval None
+  * @Note   None
+*******************************************************************************/
+void delay_ms(u32 nTime)
+{
+    u32 start = sys_Time;
+    while(sys_Time - start < nTime);
+}
 
+/*******************************************************************************
+  * @brief  æ—¶é’Ÿä¸­æ–­
+  * @param  None
+  * @retval None
+  * @Note   None
+*******************************************************************************/
+void SysTick_Handler(void)
+{
+    sys_Time++;//ç³»ç»Ÿè®¡æ—¶
+    if(SysTick_CB != NULL)
+    {
+        (*SysTick_CB)();
+    }
 
+}
+/*******************************************************************************
+  * @brief  ç²—ç•¥å¾®ç§’çº§å»¶æ—¶
+  * @param  None
+  * @retval None
+  * @Note   None
+*******************************************************************************/
+void simple_delay_us(u16 us)
+{
+    u16 i, k;
+    for(i = 0; i < us; i++)
+        for(k = 0; k < 10; k++);
+}
+/*******************************************************************************
+  * @brief  ç²—ç•¥æ¯«ç§’çº§å»¶æ—¶
+  * @param  None
+  * @retval None
+  * @Note   None
+*******************************************************************************/
+void simple_delay_ms(u16 ms)
+{
+    u16 i, k;
+    for(i = 0; i < ms; i++)
+        for(k = 0; k < 10000; k++);
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/*********************************END OF FILE**********************************/

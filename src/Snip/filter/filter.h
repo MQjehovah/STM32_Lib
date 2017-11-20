@@ -13,7 +13,7 @@
 /* Includes ------------------------------------------------------------------*/
 
 /* Definition ----------------------------------------------------------------*/
-
+#define N 12
 /* Exported Functions --------------------------------------------------------*/
 double KalmanFilter(const double ResrcData, double ProcessNiose_Q, double MeasureNoise_R);
 
